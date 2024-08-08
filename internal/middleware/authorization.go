@@ -2,6 +2,9 @@ package middleware
 
 import (
 	"errors"
+	"github.com/artemkjv/goapi/api"
+	"github.com/artemkjv/goapi/internal/tools"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 )
 
@@ -13,7 +16,27 @@ func Authorization(next http.Handler) http.Handler {
 		var token string = r.URL.Query().Get("token")
 		var err error
 		if username == "" || token == "" {
-			err = UnauthorizedError
+			log.Error(UnauthorizedError)
+			api.RequestErrorHandler(w, UnauthorizedError)
+			return
 		}
+
+		var database *tools.DatabaseInterface
+		database, err = tools.NewDatabase()
+		if err != nil {
+			api.InternalErrorHandler(w)
+			return
+		}
+
+		var loginDetails *tools.LoginDetails
+		loginDetails = (*database).GetUserLoginDetails(username)
+		if loginDetails == nil || (token != (*loginDetails).AuthToken) {
+			log.Error(UnauthorizedError)
+			api.RequestErrorHandler(w, UnauthorizedError)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+
 	})
 }
